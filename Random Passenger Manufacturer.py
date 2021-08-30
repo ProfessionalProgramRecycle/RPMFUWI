@@ -13,10 +13,25 @@ from tkinter import filedialog
 
 
 #基本信息获取
-def getinfor():
-    print('本程序可以模拟 -完全随机客流- 情况，请注意使用对应的程序创建你想创建的的客流！')
+def getinforW():
+    print('本程序可以进行电梯客流模型的创建，请注意选择对应选项创建你想创建的的客流！')
     print('程序内单位均为部、层、人、秒、千克，不存在其它的单位。')
     print('请根据提示输入数据并选择您希望释放文件的位置。\n\n')
+    print('请先选择您想要获得的客流模型：\n')
+    wav=input('输入"1"、"2"、"3"依次代表完全随机客流、早高峰、晚高峰模型。(默认1，限制1，2，3)')
+    if wav.strip().isdigit() and (wav =='1' or wav =='2' or wav =='3'):#是数字，且合乎规则
+        wav=int(wav)
+    else:
+        wav = 1#出错则为随机客流模型
+    if wav==1:
+        print('您的选择：生成 - 完全随机 - 客流模型。\n')
+    elif wav==2:
+        print('您的选择：生成 - 早高峰 - 客流模型。\n')
+    else:
+        print('您的选择：生成 - 晚高峰 - 客流模型。\n')
+    return wav
+
+def getinfor():
     #电梯部数
     EN=input('您的程序有几部电梯？(默认6，限制1、2、3、6)')
     if EN.strip().isdigit() and (EN =='1' or EN =='2' or EN =='3' or EN =='6'):#是数字，且合乎规则
@@ -135,7 +150,7 @@ def headin(target,detail):
     return
 
 #中部数据处理及写入
-def maindata(targetf,Peoplenum,Initfloor,TimeC,TimeE,Efloor,WeightC,WeightE):
+def maindata(wavm,targetf,Peoplenum,Initfloor,TimeC,TimeE,Efloor,WeightC,WeightE):
 
     str0='''\n    <Node Index="'''#排队顺序
     str1='''">
@@ -158,8 +173,15 @@ def maindata(targetf,Peoplenum,Initfloor,TimeC,TimeE,Efloor,WeightC,WeightE):
         timeline.append(random.randint(TimeC,TimeE))
         j=0;k=0
         while j==k:
-            j=random.randint(1,Efloor)
-            k=random.randint(1,Efloor)
+            if wavm==1:
+                 j=random.randint(1,Efloor)
+                 k=random.randint(1,Efloor)
+            elif wavm==2:
+                 j=1
+                 k=random.randint(1,Efloor)
+            else:
+                 j=random.randint(1,Efloor)
+                 k=1
         F.append(j)
         T.append(k)
         Wei.append(random.randint(WeightC,WeightE))
@@ -233,6 +255,8 @@ if __name__=="__main__":
 <EES>
   <People>'''
     #信息取得。
+    #客流信息取得
+    Wav=getinforW()
     #电梯部数，电梯楼层数，初始化楼层数，初始化方向，初始化第二限位撞击，搭乘总人数，第一位出现时间，最后一位出现时间，最重单人重量，最轻单人重量，初始化限制时间，运行结束判分时间
     ENum,EFloor,InitFloor,InitDire,InitSecCru,PeopleNum,TimeStart,TimeEnd,WeiMax,WeiMin,InitEndLimit,AutoEndLimit=getinfor()
     #文件创建
@@ -240,7 +264,7 @@ if __name__=="__main__":
     #头部写入
     headin(targetfile,head)
     #中部数据处理及写入
-    maindata(targetfile,PeopleNum,InitFloor,TimeStart,TimeEnd,EFloor,WeiMin,WeiMax)
+    maindata(Wav,targetfile,PeopleNum,InitFloor,TimeStart,TimeEnd,EFloor,WeiMin,WeiMax)
     #尾部数据处理及写入
     end(targetfile,InitFloor,InitSecCru,InitEndLimit,AutoEndLimit,InitDire,ENum,EFloor)
     print('\n\n操作成功完成！\n\n')
