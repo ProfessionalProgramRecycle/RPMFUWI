@@ -4,7 +4,7 @@ This is a passenger flow creation program designed for the elevator operation si
 
 ### Default parameters：
 
-完全随机客流，限制int(1||2||3)，<br/>
+全天客流，限制int(1||2||3||4)，<br/>
 三部电梯，限制int(1||2||3||6)，<br/>
 每梯十层，限制int(6||10)，<br/>
 初始化到达最高层，限制int([1,10]||[1,6])，<br/>
