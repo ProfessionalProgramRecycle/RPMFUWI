@@ -10,27 +10,29 @@ import os
 import random
 import tkinter as tk
 from tkinter import filedialog
+import math
 
 
 #基本信息获取
-def getinforW():
+def getinformod():
     print('本程序可以进行电梯客流模型的创建，请注意选择对应选项创建你想创建的的客流！')
     print('程序内单位均为部、层、人、秒、千克，不存在其它的单位。')
     print('请根据提示输入数据并选择您希望释放文件的位置。\n\n')
     print('请先选择您想要获得的客流模型：\n')
-    wav=input('输入"1"、"2"、"3"依次代表完全随机客流、早高峰、晚高峰模型。(默认1，限制1，2，3)')
-    if wav.strip().isdigit() and (wav =='1' or wav =='2' or wav =='3'):#是数字，且合乎规则
-        wav=int(wav)
+    passengermodel=input('输入"1"、"2"、"3"、"4"依次代表全天、普通、早高峰、晚高峰。(默认1，限制1、2、3、4)')
+    if passengermodel.strip().isdigit() and (passengermodel =='1' or passengermodel =='2' or passengermodel =='3' or passengermodel =='4'):#是数字，且合乎规则
+        passengermodel=int(passengermodel)
     else:
-        wav = 1#出错则为随机客流模型
-    if wav==1:
-        print('您的选择：生成 - 完全随机 - 客流模型。\n')
-    elif wav==2:
+        passengermodel = 1#出错则为随机客流模型
+    if passengermodel==1:
+        print('您的选择：生成 - 全天 - 客流模型。\n')
+    elif passengermodel==2:
+        print('您的选择：生成 - 普通 - 客流模型。\n')
+    elif passengermodel==3:
         print('您的选择：生成 - 早高峰 - 客流模型。\n')
-    else:
+    elif passengermodel==4:
         print('您的选择：生成 - 晚高峰 - 客流模型。\n')
-    return wav
-
+    return passengermodel
 def getinfor():
     #电梯部数
     EN=input('您的程序有几部电梯？(默认6，限制1、2、3、6)')
@@ -142,15 +144,53 @@ def filecreate(en,ef):#先进行输入的字符串处理
 
     return targetpath
 
-#头部写入
+#文件头部写入
 def headin(target,detail):
     f1=open(file=targetfile,mode='w',encoding='utf-8-sig')
     f1.write(detail)
     f1.close()
     return
 
-#中部数据处理及写入
-def maindata(wavm,targetf,Peoplenum,Initfloor,TimeC,TimeE,Efloor,WeightC,WeightE):
+##客流模型设定函数：上行，一般，下行
+def risingpeakmod(elevaterfloor):
+    expand=elevaterfloor*20
+    startfloor=random.randint(1,expand)
+    if startfloor > 3*elevaterfloor:#(4~20)85%为1层起步，(123)15%为其他层起步
+        startfloor=1
+    else:
+        startfloor=math.floor(startfloor*(-9)/29+11)#层数呈线性分布，遂列出一元二次方程
+    endfloor=random.randint(1,elevaterfloor)
+    while startfloor==endfloor:
+        endfloor=random.randint(1,elevaterfloor)
+    everyonefromtoline=list()
+    everyonefromtoline.append(startfloor);everyonefromtoline.append(endfloor)
+    return everyonefromtoline
+def normalpeakmod(elevaterfloor):
+    startfloor=random.randint(1,elevaterfloor)
+    endfloor=random.randint(1,elevaterfloor)
+    while startfloor==endfloor:
+        startfloor=random.randint(1,elevaterfloor)
+        endfloor=random.randint(1,elevaterfloor)
+    everyonefromtoline=list()
+    everyonefromtoline.append(startfloor);everyonefromtoline.append(endfloor)
+    return everyonefromtoline
+def downpeakmod(elevaterfloor):
+    expand=elevaterfloor*20
+    endfloor=random.randint(1,expand)
+    if endfloor > 3*elevaterfloor:#(4~20)85%为顶层起步，(123)15%为其他层起步
+        endfloor=1
+    else:
+        endfloor=math.floor(endfloor*(-9)/29+11)
+    startfloor=random.randint(1,elevaterfloor)
+    while startfloor==endfloor:
+        startfloor=random.randint(1,elevaterfloor)
+    everyonefromtoline=list()
+    everyonefromtoline.append(startfloor);everyonefromtoline.append(endfloor)
+    return everyonefromtoline
+
+#文件中部数据处理及写入
+def maindata(passengermod,targetfile,peoplesum,initfloor,firstpassengerarrivetime,lastpassengerarrivetime,elevaterfloor,minimumweight,maximumweight):
+    #客流模型，目的文件，搭乘总人数，初始化楼层，第一位出现时间，最后一位出现时间，电梯井楼层数，最轻单人重量，最重单人重量
 
     str0='''\n    <Node Index="'''#排队顺序
     str1='''">
@@ -166,47 +206,60 @@ def maindata(wavm,targetf,Peoplenum,Initfloor,TimeC,TimeE,Efloor,WeightC,WeightE
 
     #创建时间序列、起始结束层序列、体重序列
     timeline=list()
-    F=list()
-    T=list()
-    Wei=list()
-    for i in range(Peoplenum):
-        timeline.append(random.randint(TimeC,TimeE))
-        j=0;k=0
-        while j==k:
-            if wavm==1:
-                 j=random.randint(1,Efloor)
-                 k=random.randint(1,Efloor)
-            elif wavm==2:
-                 j=1
-                 k=random.randint(1,Efloor)
+    startfloorline=list()
+    endfloorline=list()
+    weightline=list()
+    for nowpassengernum in range(peoplesum):
+        timeline.append(random.randint(firstpassengerarrivetime,lastpassengerarrivetime))
+        #全天客流，普通客流，早高峰客流，晚高峰客流
+        if passengermod != 1 and passengermod != 2 and passengermod != 3 and passengermod != 4:#设定默认值为全程客流
+            passengermod = 1
+        singlelineinmod1=list()
+        if passengermod == 1:#全天客流
+            if nowpassengernum < (peoplesum / 3):
+                singlelineinmod1=risingpeakmod(elevaterfloor)
+            elif nowpassengernum >= (peoplesum / 3) and nowpassengernum <= (peoplesum / 3 * 2):
+                singlelineinmod1=normalpeakmod(elevaterfloor)
             else:
-                 j=random.randint(1,Efloor)
-                 k=1
-        F.append(j)
-        T.append(k)
-        Wei.append(random.randint(WeightC,WeightE))
-    timeline.sort()
+                singlelineinmod1=downpeakmod(elevaterfloor)
 
-    onepeo=list()
+            startfloorline.append(str(singlelineinmod1[0]));endfloorline.append(str(singlelineinmod1[1]))
+
+        elif passengermod == 2:#普通客流
+            singlelineinmod1=normalpeakmod(elevaterfloor)
+            startfloorline.append(str(singlelineinmod1[0]));endfloorline.append(str(singlelineinmod1[1]))
+
+        elif passengermod == 3:#上行高峰
+            singlelineinmod1=risingpeakmod(elevaterfloor)
+            startfloorline.append(str(singlelineinmod1[0]));endfloorline.append(str(singlelineinmod1[1]))
+
+        elif passengermod == 4:#下行高峰
+            singlelineinmod1=downpeakmod(elevaterfloor)
+            startfloorline.append(str(singlelineinmod1[0]));endfloorline.append(str(singlelineinmod1[1]))
+
+        weightline.append(random.randint(minimumweight,maximumweight))
+    timeline.sort()
+    #创建单人全部信息序列，全部乘员信息序列，初始化乘员序号
+    onepeosonline=list()
     combination=list()
     nownum=0
-    for i in range(Peoplenum):
+    for i in range(peoplesum):
         nownum+=1
-        onepeo.append(str0);onepeo.append(str(nownum))
-        onepeo.append(str1);onepeo.append(str(timeline[i]))
-        onepeo.append(str2);onepeo.append(str(F[i]))
-        onepeo.append(str3);onepeo.append(str(T[i]))
-        onepeo.append(str4);onepeo.append(str(Wei[i]))
-        onepeo.append(str5)
-        combination.append(''.join(onepeo))
-        onepeo.clear()
+        onepeosonline.append(str0);onepeosonline.append(str(nownum))
+        onepeosonline.append(str1);onepeosonline.append(str(timeline[i]))
+        onepeosonline.append(str2);onepeosonline.append(str(startfloorline[i]))
+        onepeosonline.append(str3);onepeosonline.append(str(endfloorline[i]))
+        onepeosonline.append(str4);onepeosonline.append(str(weightline[i]))
+        onepeosonline.append(str5)
+        combination.append(''.join(onepeosonline))
+        onepeosonline.clear()
 
-    f1=open(targetf,mode='a',encoding='utf-8-sig')
+    f1=open(targetfile,mode='a',encoding='utf-8-sig')
     f1.write(''.join(combination))
     f1.close()
     return
 
-#尾部数据处理及写入
+#文件尾部数据处理及写入
 def end(targetf,Initfloor,Initsecondcrush,InitTimeEnd,TimeEndTotal,InitDire,Enum,Efloor):
     endstr=list()
     endstrt=list()
@@ -256,16 +309,20 @@ if __name__=="__main__":
   <People>'''
     #信息取得。
     #客流信息取得
-    Wav=getinforW()
-    #电梯部数，电梯楼层数，初始化楼层数，初始化方向，初始化第二限位撞击，搭乘总人数，第一位出现时间，最后一位出现时间，最重单人重量，最轻单人重量，初始化限制时间，运行结束判分时间
-    ENum,EFloor,InitFloor,InitDire,InitSecCru,PeopleNum,TimeStart,TimeEnd,WeiMax,WeiMin,InitEndLimit,AutoEndLimit=getinfor()
+    passengermodel=getinformod()
+    #电梯部数，电梯井楼层数，初始化楼层，初始化方向，初始化第二限位撞击，搭乘总人数，第一位出现时间，最后一位出现时间，最重单人重量，最轻单人重量，初始化限制时间，运行结束判分时间
+    elevatersum,elefloor,initfloor,initdire,initsecondcrush,peoplesum,startpassengertime,endpassengertime,maxmonomerweight,minmonomerweight,inittimelimit,autotimelimit=getinfor()
     #文件创建
-    targetfile=filecreate(ENum,EFloor)
-    #头部写入
+    targetfile=filecreate(elevatersum,elefloor)
+    #文件头部写入
     headin(targetfile,head)
-    #中部数据处理及写入
-    maindata(Wav,targetfile,PeopleNum,InitFloor,TimeStart,TimeEnd,EFloor,WeiMin,WeiMax)
-    #尾部数据处理及写入
-    end(targetfile,InitFloor,InitSecCru,InitEndLimit,AutoEndLimit,InitDire,ENum,EFloor)
+    #文件中部数据处理及写入:客流模型，目的文件，搭乘总人数，初始化楼层，第一位出现时间，最后一位出现时间，电梯井楼层数，最轻单人重量，最重单人重量
+    maindata(passengermodel,targetfile,peoplesum,initfloor,startpassengertime,endpassengertime,elefloor,minmonomerweight,maxmonomerweight)
+    #文件尾部数据处理及写入
+    end(targetfile,initfloor,initsecondcrush,inittimelimit,autotimelimit,initdire,elevatersum,elefloor)
     print('\n\n操作成功完成！\n\n')
     os.system('pause')
+
+
+
+   
